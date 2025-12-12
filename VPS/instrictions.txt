@@ -3,7 +3,7 @@
 3. Navigate to the "VPS" directory and run `npm init -y` to create a package.json file.
 4. Install the required packages by running:
    ```
-   npm install express multer rate-limit dotenv
+   npm install express multer express-rate-limit dotenv helmet
    ```
 5. Create a `.env` file in the "VPS" directory and add the following line:
    ```
